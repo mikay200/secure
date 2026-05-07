@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SecureShare</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root {
+    --blue-950: #020b1a;
+    --blue-900: #041428;
+    --blue-800: #062040;
+    --blue-700: #0a3060;
+    --blue-600: #0e4280;
+    --blue-500: #1a5fb4;
+    --blue-400: #2d7dd2;
+    --blue-300: #4fa3f7;
+    --blue-200: #93c7ff;
+    --blue-100: #dbeeff;
+    --accent:   #38bdf8;
+    --accent2:  #0ea5e9;
+    --teal:     #06d6a0;
+    --pink:     #f43f5e;
+    --yellow:   #fbbf24;
+    --card:     #061828;
+    --card2:    #071f35;
+    --border:   rgba(56,189,248,0.12);
+    --border2:  rgba(56,189,248,0.22);
+    --text:     #e2f0ff;
+    --muted:    #6b9ab8;
+    --glow:     rgba(56,189,248,0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--blue-950);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 70% 50% at 10% 0%, rgba(56,189,248,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 90% 100%, rgba(14,165,233,0.09) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 50% 40%, rgba(6,214,160,0.04) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; }
+
+  /* ── HEADER ─────────────────────────────────────────── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px;
+    background: rgba(4,20,40,0.88);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 11px;
+    font-size: 1.4rem; font-weight: 900;
+    letter-spacing: -0.5px;
+  }
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    box-shadow: 0 0 24px rgba(56,189,248,0.45);
+    animation: pulse-logo 3s ease-in-out infinite;
+  }
+  @keyframes pulse-logo {
+    0%,100% { box-shadow: 0 0 20px rgba(56,189,248,0.4); }
+    50%      { box-shadow: 0 0 36px rgba(56,189,248,0.75); }
+  }
+  .logo span {
+    background: linear-gradient(90deg, var(--accent), #a5d8ff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+
+  .user-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(56,189,248,0.07);
+    border: 1px solid var(--border2);
+    border-radius: 99px; padding: 6px 14px;
+    font-size: 0.85rem; font-weight: 700;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); animation: blink 1.5s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  #logout-btn {
+    background: none; border: 1px solid rgba(244,63,94,0.35);
+    color: var(--pink); border-radius: 8px;
+    padding: 6px 14px; cursor: pointer; font-family: inherit;
+    font-weight: 700; font-size: 0.8rem; transition: all 0.2s;
+  }
+  #logout-btn:hover { background: rgba(244,63,94,0.1); }
+
+  /* ── MAIN LAYOUT ────────────────────────────────────── */
+  main { max-width: 1120px; margin: 0 auto; padding: 28px 20px; }
+
+  /* ── AUTH ───────────────────────────────────────────── */
+  #auth-screen {
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+
+  .auth-card {
+    background: var(--card);
+    border: 1px solid var(--border2);
+    border-radius: 26px; padding: 40px 36px;
+    width: 100%; max-width: 420px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(56,189,248,0.06);
+  }
+
+  .auth-title { text-align: center; margin-bottom: 30px; }
+  .auth-title .big-logo {
+    width: 66px; height: 66px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border-radius: 20px; margin: 0 auto 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem;
+    box-shadow: 0 8px 32px rgba(56,189,248,0.5);
+  }
+  .auth-title h1 { font-size: 1.85rem; font-weight: 900; }
+  .auth-title p { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+
+  .tab-row {
+    display: flex; background: rgba(56,189,248,0.05);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 4px; margin-bottom: 24px;
+  }
+  .tab-btn {
+    flex: 1; padding: 10px; border: none; background: none;
+    color: var(--muted); font-family: inherit; font-weight: 700;
+    border-radius: 9px; cursor: pointer; transition: all 0.2s;
+    font-size: 0.9rem;
+  }
+  .tab-btn.active {
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(56,189,248,0.35);
+  }
+
+  label { display: block; font-size: 0.78rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+  .field { margin-bottom: 16px; }
+  input[type="text"], input[type="password"], input[type="search"] {
+    width: 100%; padding: 12px 16px;
+    background: rgba(56,189,248,0.05);
+    border: 1px solid var(--border);
+    border-radius: 12px; color: var(--text);
+    font-family: inherit; font-size: 0.97rem;
+    transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+  }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56,189,248,0.12); }
+
+  .btn-primary {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border: none; border-radius: 14px;
+    color: #fff; font-family: inherit;
+    font-weight: 900; font-size: 1rem;
+    cursor: pointer; transition: all 0.2s;
+    box-shadow: 0 6px 22px rgba(56,189,248,0.35);
+    letter-spacing: 0.3px; margin-top: 4px;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(56,189,248,0.5); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .msg { font-size: 0.85rem; text-align: center; margin-top: 12px; min-height: 20px; font-weight: 700; }
+  .msg.ok  { color: var(--teal); }
+  .msg.err { color: var(--pink); }
+
+  /* ── APP SCREEN ─────────────────────────────────────── */
+  #app-screen { display: none; }
+
+  .app-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    grid-template-rows: auto auto;
+    gap: 18px;
+  }
+  @media(max-width:800px){ .app-grid { grid-template-columns: 1fr; } }
+
+  /* ── CARDS ──────────────────────────────────────────── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px; padding: 22px;
+  }
+  .card-title {
+    font-size: 0.73rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title .ct-icon { font-size: 1rem; }
+  .card-title .ct-badge {
+    margin-left: auto; font-size: 0.68rem;
+    background: rgba(56,189,248,0.12);
+    border: 1px solid var(--border2);
+    padding: 2px 8px; border-radius: 99px; color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── USERS PANEL ────────────────────────────────────── */
+  .search-box {
+    position: relative; margin-bottom: 12px;
+  }
+  .search-box input {
+    padding-left: 36px; font-size: 0.88rem;
+  }
+  .search-box .si {
+    position: absolute; left: 12px; top: 50%;
+    transform: translateY(-50%); color: var(--muted); font-size: 0.95rem;
+    pointer-events: none;
+  }
+
+  .multi-hint {
+    font-size: 0.72rem; color: var(--muted); margin-bottom: 10px;
+    padding: 6px 10px; background: rgba(56,189,248,0.05);
+    border-radius: 8px; border: 1px solid var(--border);
+  }
+
+  #users-list { display: flex; flex-direction: column; gap: 7px; max-height: 320px; overflow-y: auto; }
+  #users-list::-webkit-scrollbar { width: 4px; }
+  #users-list::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.15); border-radius: 4px; }
+
+  .user-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    background: rgba(56,189,248,0.04);
+    border: 1px solid var(--border);
+    border-radius: 12px; cursor: pointer; transition: all 0.2s;
+    position: relative;
+  }
+  .user-item:hover { background: rgba(56,189,248,0.09); border-color: var(--border2); }
+  .user-item.selected {
+    background: rgba(56,189,248,0.13);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .user-item.selected::after {
+    content: '✓';
+    position: absolute; right: 12px;
+    font-size: 0.8rem; font-weight: 900; color: var(--accent);
+    width: 20px; height: 20px;
+    background: rgba(56,189,248,0.2);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    line-height: 20px; text-align: center;
+  }
+  .user-avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 0.88rem; color: #fff; flex-shrink: 0;
+  }
+  .user-name { font-weight: 700; font-size: 0.92rem; }
+  .user-status { font-size: 0.72rem; color: var(--teal); }
+
+  .selected-targets {
+    margin-top: 12px; display: none;
+    background: rgba(56,189,248,0.07);
+    border: 1px solid var(--border2);
+    border-radius: 12px; padding: 10px 14px;
+  }
+  .selected-targets.show { display: block; }
+  .selected-targets-label {
+    font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--accent); margin-bottom: 8px;
+  }
+  .selected-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(56,189,248,0.15);
+    border: 1px solid var(--border2);
+    border-radius: 99px; padding: 4px 10px;
+    font-size: 0.78rem; font-weight: 700; color: var(--accent);
+  }
+  .chip-x {
+    cursor: pointer; color: var(--muted); font-size: 0.85rem;
+    line-height: 1; transition: color 0.15s;
+  }
+  .chip-x:hover { color: var(--pink); }
+
+  .empty-state { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 20px 0; }
+
+  /* ── SEND PANEL ─────────────────────────────────────── */
+  .drop-zone {
+    border: 2px dashed rgba(56,189,248,0.2);
+    border-radius: 16px; padding: 28px 20px;
+    text-align: center; cursor: pointer;
+    transition: all 0.2s; margin-bottom: 14px; position: relative;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(56,189,248,0.06);
+  }
+  .drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+  .dz-icon { font-size: 2.4rem; margin-bottom: 8px; }
+  .dz-text { color: var(--muted); font-size: 0.88rem; }
+  .dz-filename { margin-top: 8px; font-weight: 700; color: var(--blue-200); font-size: 0.88rem; font-family: 'JetBrains Mono', monospace; }
+
+  .btn-send {
+    width: 100%; padding: 13px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border: none; border-radius: 14px;
+    color: #fff; font-family: inherit;
+    font-weight: 900; font-size: 1rem;
+    cursor: pointer; transition: all 0.2s;
+    box-shadow: 0 6px 22px rgba(56,189,248,0.3);
+  }
+  .btn-send:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(56,189,248,0.48); }
+  .btn-send:disabled { opacity: 0.38; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* ── PROGRESS ───────────────────────────────────────── */
+  .progress-wrap { margin-top: 12px; display: none; }
+  .progress-wrap.show { display: block; }
+  .progress-bar-bg {
+    background: rgba(56,189,248,0.1);
+    border-radius: 99px; height: 9px; overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .progress-bar-fill {
+    height: 100%; border-radius: 99px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent), #a5d8ff);
+    background-size: 200% 100%;
+    width: 0%; transition: width 0.5s ease;
+    animation: shimmer 2s linear infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .progress-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 6px;
+  }
+  .progress-label { font-size: 0.79rem; color: var(--muted); }
+  .progress-pct { font-size: 0.79rem; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-weight: 700; }
+
+  /* ── SENT FILES HISTORY ─────────────────────────────── */
+  .sent-files-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+  .sent-files-list::-webkit-scrollbar { width: 4px; }
+  .sent-files-list::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.15); border-radius: 4px; }
+
+  .sent-file-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px;
+    background: rgba(56,189,248,0.04);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    animation: fade-in 0.3s ease;
+  }
+  .sf-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; flex-shrink: 0;
+    background: rgba(56,189,248,0.1);
+    border: 1px solid var(--border);
+  }
+  .sf-info { flex: 1; min-width: 0; }
+  .sf-name {
+    font-weight: 700; font-size: 0.88rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--blue-200);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .sf-meta { font-size: 0.73rem; color: var(--muted); margin-top: 2px; }
+  .sf-meta strong { color: var(--accent); }
+  .sf-status {
+    font-size: 0.72rem; font-weight: 800; padding: 3px 9px;
+    border-radius: 99px; flex-shrink: 0;
+  }
+  .sf-status.pending { background: rgba(251,191,36,0.12); color: var(--yellow); border: 1px solid rgba(251,191,36,0.25); }
+  .sf-status.accepted { background: rgba(6,214,160,0.12); color: var(--teal); border: 1px solid rgba(6,214,160,0.25); }
+  .sf-status.rejected { background: rgba(244,63,94,0.12); color: var(--pink); border: 1px solid rgba(244,63,94,0.25); }
+
+  /* ── ACTIVITY LOG ───────────────────────────────────── */
+  #activity-log { display: flex; flex-direction: column; gap: 7px; max-height: 200px; overflow-y: auto; }
+  #activity-log::-webkit-scrollbar { width: 4px; }
+  #activity-log::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.15); border-radius: 4px; }
+
+  .log-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 0.81rem; padding: 8px 12px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 10px; border-left: 3px solid transparent;
+    animation: fade-in 0.3s ease;
+  }
+  @keyframes fade-in { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+  .log-item.ok   { border-left-color: var(--teal); }
+  .log-item.err  { border-left-color: var(--pink); }
+  .log-item.info { border-left-color: var(--accent); }
+  .log-item.warn { border-left-color: var(--yellow); }
+  .log-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .log-item.ok .log-dot   { background: var(--teal); }
+  .log-item.err .log-dot  { background: var(--pink); }
+  .log-item.info .log-dot { background: var(--accent); }
+  .log-item.warn .log-dot { background: var(--yellow); }
+  .log-text { flex: 1; color: var(--text); }
+  .log-time { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; flex-shrink: 0; }
+
+  /* ── ENC BADGE ──────────────────────────────────────── */
+  .enc-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(56,189,248,0.08);
+    border: 1px solid rgba(56,189,248,0.2);
+    border-radius: 99px; padding: 5px 14px;
+    font-size: 0.75rem; font-weight: 700; color: var(--accent);
+    margin-bottom: 22px;
+  }
+
+  /* ── NOTIFICATIONS ──────────────────────────────────── */
+  #notif-area {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+    display: flex; flex-direction: column; gap: 12px; max-width: 360px;
+  }
+
+  .notif-card {
+    background: var(--card2);
+    border: 1px solid var(--border2);
+    border-radius: 20px; padding: 20px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.6), 0 0 30px rgba(56,189,248,0.08);
+    animation: slide-in 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes slide-in {
+    from { transform: translateX(120%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+  .notif-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .notif-icon {
+    width: 42px; height: 42px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+    flex-shrink: 0; box-shadow: 0 4px 16px rgba(56,189,248,0.4);
+  }
+  .notif-from { font-weight: 900; font-size: 1rem; }
+  .notif-sub  { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .notif-filename {
+    background: rgba(56,189,248,0.07); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.81rem; color: var(--blue-200);
+    margin-bottom: 14px; word-break: break-all;
+  }
+  .notif-size { font-size: 0.73rem; color: var(--muted); margin-top: 4px; font-family: inherit; }
+  .notif-btns { display: flex; gap: 8px; }
+  .btn-accept {
+    flex: 1; padding: 10px;
+    background: linear-gradient(135deg, var(--teal), #04b889);
+    border: none; border-radius: 10px;
+    color: #0a2a1a; font-family: inherit; font-weight: 900;
+    cursor: pointer; font-size: 0.88rem; transition: all 0.2s;
+  }
+  .btn-accept:hover { transform: translateY(-1px); }
+  .btn-reject {
+    flex: 1; padding: 10px;
+    background: rgba(244,63,94,0.1);
+    border: 1px solid rgba(244,63,94,0.3);
+    border-radius: 10px; color: var(--pink);
+    font-family: inherit; font-weight: 900;
+    cursor: pointer; font-size: 0.88rem; transition: all 0.2s;
+  }
+  .btn-reject:hover { background: rgba(244,63,94,0.2); }
+
+  /* ── TOAST ──────────────────────────────────────────── */
+  #toast {
+    position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+    background: var(--card2); border: 1px solid var(--border2);
+    border-radius: 99px; padding: 10px 22px;
+    font-weight: 700; font-size: 0.9rem;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    z-index: 9999; opacity: 0; pointer-events: none;
+    transition: opacity 0.3s; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ── SECTION DIVIDER ────────────────────────────────── */
+  .section-row { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media(max-width:700px){ .section-row { grid-template-columns: 1fr; } }
+
+  .full-row { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div id="toast"></div>
+<div id="notif-area"></div>
+
+<!-- ══════════════════════ AUTH ══════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-title">
+      <div class="big-logo">📡</div>
+      <h1>SecureShare</h1>
+      <p>Encrypted peer-to-peer file transfer</p>
+    </div>
+
+    <div class="enc-badge" style="margin: 0 auto 22px; display: table;">🔒 AES-256 + RSA-2048 Encrypted</div>
+
+    <div class="tab-row">
+      <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">Login</button>
+      <button class="tab-btn" id="tab-register" onclick="switchTab('register')">Register</button>
+    </div>
+
+    <div id="login-form">
+      <div class="field"><label>Username</label><input type="text" id="login-user" placeholder="Enter username" autocomplete="username"/></div>
+      <div class="field"><label>Password</label><input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password"/></div>
+      <button class="btn-primary" onclick="doLogin()">🚀 Login</button>
+      <div class="msg" id="login-msg"></div>
+    </div>
+
+    <div id="register-form" style="display:none">
+      <div class="field"><label>Username</label><input type="text" id="reg-user" placeholder="Choose username"/></div>
+      <div class="field"><label>Password</label><input type="password" id="reg-pass" placeholder="Choose password (min 6 chars)"/></div>
+      <button class="btn-primary" onclick="doRegister()">✨ Create Account</button>
+      <div class="msg" id="reg-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ APP ══════════════════════ -->
+<div id="app-screen">
+  <header>
+    <div class="logo"><div class="logo-icon">📡</div><span>SecureShare</span></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="enc-badge" style="margin:0;">🔒 AES-256 + RSA-2048</div>
+      <div class="user-badge"><div class="dot"></div><span id="header-username">—</span></div>
+      <button id="logout-btn" onclick="doLogout()">Logout</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="app-grid">
+
+      <!-- LEFT: Online Users -->
+      <div class="card" style="grid-row: span 1;">
+        <div class="card-title">
+          <span class="ct-icon">🟢</span> Online Users
+          <span class="ct-badge" id="online-count">0 online</span>
+        </div>
+        <div class="search-box">
+          <span class="si">🔍</span>
+          <input type="search" id="user-search" placeholder="Search username…" oninput="filterUsers()" autocomplete="off"/>
+        </div>
+        <div class="multi-hint">💡 Tap to select • Select multiple to send to all</div>
+        <div id="users-list"><div class="empty-state">Waiting for other devices…</div></div>
+        <div class="selected-targets" id="selected-targets-box">
+          <div class="selected-targets-label">📬 Sending to:</div>
+          <div class="selected-chips" id="selected-chips"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Send File -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📤</span> Send File</div>
+
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+          <input type="file" id="file-input" onchange="onFileSelected(this)"/>
+          <div class="dz-icon">📂</div>
+          <div class="dz-text">Click or drag & drop a file here</div>
+          <div class="dz-filename" id="dz-filename"></div>
+        </div>
+
+        <button class="btn-send" id="send-btn" onclick="sendFile()" disabled>Send File 🔐</button>
+        <div class="msg" id="send-msg" style="text-align:left;margin-top:10px;"></div>
+
+        <div class="progress-wrap" id="progress-wrap">
+          <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar"></div></div>
+          <div class="progress-meta">
+            <div class="progress-label" id="progress-label">Encrypting…</div>
+            <div class="progress-pct" id="progress-pct">0%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM LEFT: Sent Files History -->
+      <div class="card">
+        <div class="card-title">
+          <span class="ct-icon">📁</span> Sent Files
+          <span class="ct-badge" id="sent-count">0 files</span>
+        </div>
+        <div class="sent-files-list" id="sent-files-list">
+          <div class="empty-state">No files sent yet…</div>
+        </div>
+      </div>
+
+      <!-- BOTTOM RIGHT: Activity Log -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📋</span> Activity Log</div>
+        <div id="activity-log"><div class="empty-state" style="padding:8px 0;">No activity yet…</div></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+</div><!-- /wrap -->
+
+<script>
+// ══ State ══════════════════════════════════════════════
+let token = null;
+let currentUser = null;
+let selectedTargets = new Set(); // multi-select
+let selectedFile = null;
+let socket = null;
+let allOnlineUsers = [];
+let sentFiles = [];
+let sentCount = 0;
+
+const COLORS = ['#2d7dd2','#06d6a0','#38bdf8','#f43f5e','#fbbf24','#818cf8','#34d399'];
+function avatarColor(name) { let h = 0; for(const c of name) h = (h*31 + c.charCodeAt(0)) % COLORS.length; return COLORS[h]; }
+function initials(name) { return name.slice(0,2).toUpperCase(); }
+
+function getFileIcon(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  const map = { pdf:'📄', doc:'📝', docx:'📝', xls:'📊', xlsx:'📊', ppt:'📊', pptx:'📊', jpg:'🖼️', jpeg:'🖼️', png:'🖼️', gif:'🖼️', webp:'🖼️', mp4:'🎬', mov:'🎬', avi:'🎬', mp3:'🎵', wav:'🎵', zip:'🗜️', rar:'🗜️', tar:'🗜️', gz:'🗜️', js:'💻', ts:'💻', py:'💻', html:'💻', css:'💻', json:'💻', txt:'📃', csv:'📊' };
+  return map[ext] || '📎';
+}
+
+// ══ Auth ═══════════════════════════════════════════════
+function switchTab(tab) {
+  document.getElementById('login-form').style.display = tab==='login' ? '' : 'none';
+  document.getElementById('register-form').style.display = tab==='register' ? '' : 'none';
+  document.getElementById('tab-login').classList.toggle('active', tab==='login');
+  document.getElementById('tab-register').classList.toggle('active', tab==='register');
+}
+
+async function doRegister() {
+  const username = document.getElementById('reg-user').value.trim();
+  const password = document.getElementById('reg-pass').value;
+  const msg = document.getElementById('reg-msg');
+  if (!username || !password) { setMsg(msg,'Username and password required','err'); return; }
+  if (password.length < 6) { setMsg(msg,'Password must be at least 6 characters','err'); return; }
+  msg.textContent = 'Creating account…'; msg.className = 'msg';
+  try {
+    const r = await fetch('/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}) });
+    const d = await r.json();
+    if (d.success) { setMsg(msg,'Account created! You can now login ✅','ok'); setTimeout(()=>switchTab('login'),1200); }
+    else setMsg(msg, d.error || 'Registration failed','err');
+  } catch { setMsg(msg,'Server error','err'); }
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-pass').value;
+  const msg = document.getElementById('login-msg');
+  if (!username || !password) { setMsg(msg,'Enter username and password','err'); return; }
+  msg.textContent = 'Logging in…'; msg.className = 'msg';
+  try {
+    const r = await fetch('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}) });
+    const d = await r.json();
+    if (d.success) {
+      token = d.token; currentUser = username;
+      setMsg(msg,'Welcome back! 🎉','ok');
+      setTimeout(enterApp, 500);
+    } else setMsg(msg, d.error || 'Login failed','err');
+  } catch { setMsg(msg,'Server error','err'); }
+}
+
+function doLogout() {
+  token = null; currentUser = null; selectedTargets.clear(); selectedFile = null;
+  sentFiles = []; sentCount = 0;
+  if (socket) { socket.disconnect(); socket = null; }
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  setMsg(document.getElementById('login-msg'),'','');
+}
+
+function enterApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('header-username').textContent = currentUser;
+  initSocket();
+  addLog(`Logged in as ${currentUser}`,'ok');
+}
+
+// ══ Socket.IO ══════════════════════════════════════════
+function initSocket() {
+  socket = io();
+  socket.on('connect', () => {
+    socket.emit('register-socket', { token });
+    addLog('Connected to SecureShare network','info');
+  });
+  socket.on('online-users', (users) => {
+    allOnlineUsers = users;
+    renderUsers(users);
+    document.getElementById('online-count').textContent = (users.filter(u=>u!==currentUser).length) + ' online';
+  });
+  socket.on('file-request', (data) => {
+    showFileRequest(data);
+    addLog(`📥 Incoming file from ${data.fromUsername}: ${data.filename}`, 'info');
+  });
+  socket.on('transfer-accepted', (data) => {
+    showToast(`✅ ${data.filename} accepted!`, 'var(--teal)');
+    addLog(`✅ Accepted: ${data.filename}`, 'ok');
+    animateProgress(100, 'Transfer accepted ✅');
+    updateSentFileStatus(data.requestId, 'accepted');
+    setTimeout(hideProgress, 2000);
+  });
+  socket.on('transfer-rejected', (data) => {
+    showToast(`❌ Rejected: ${data.filename}`, 'var(--pink)');
+    addLog(`❌ Rejected: ${data.filename}`, 'err');
+    hideProgress();
+    updateSentFileStatus(data.requestId, 'rejected');
+  });
+  socket.on('start-download', (data) => {
+    triggerDownload(data.requestId, data.filename);
+  });
+  socket.on('disconnect', () => {
+    addLog('Disconnected from network', 'warn');
+  });
+}
+
+// ══ Users List ═════════════════════════════════════════
+function renderUsers(users) {
+  const query = (document.getElementById('user-search')?.value || '').toLowerCase();
+  const list = document.getElementById('users-list');
+  const others = users.filter(u => u !== currentUser && (query === '' || u.toLowerCase().includes(query)));
+  if (!others.length) {
+    list.innerHTML = query ? '<div class="empty-state">No users match your search…</div>' : '<div class="empty-state">No other devices online…<br>Open this on another device!</div>';
+    return;
+  }
+  list.innerHTML = others.map(u => `
+    <div class="user-item ${selectedTargets.has(u)?'selected':''}" onclick="toggleTarget('${u}')">
+      <div class="user-avatar" style="background:${avatarColor(u)}">${initials(u)}</div>
+      <div>
+        <div class="user-name">${u}</div>
+        <div class="user-status">● Online</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterUsers() {
+  renderUsers(allOnlineUsers);
+}
+
+function toggleTarget(username) {
+  if (selectedTargets.has(username)) {
+    selectedTargets.delete(username);
+  } else {
+    selectedTargets.add(username);
+  }
+  renderUsers(allOnlineUsers);
+  renderChips();
+  updateSendBtn();
+}
+
+function removeTarget(username) {
+  selectedTargets.delete(username);
+  renderUsers(allOnlineUsers);
+  renderChips();
+  updateSendBtn();
+}
+
+function renderChips() {
+  const box = document.getElementById('selected-targets-box');
+  const chips = document.getElementById('selected-chips');
+  if (selectedTargets.size === 0) { box.classList.remove('show'); return; }
+  box.classList.add('show');
+  chips.innerHTML = [...selectedTargets].map(u => `
+    <div class="chip">
+      <span>${u}</span>
+      <span class="chip-x" onclick="removeTarget('${u}')">×</span>
+    </div>
+  `).join('');
+}
+
+// ══ File Selection ══════════════════════════════════════
+function onFileSelected(input) {
+  const file = input.files[0];
+  if (!file) return;
+  selectedFile = file;
+  document.getElementById('dz-filename').textContent = `${getFileIcon(file.name)} ${file.name}  (${formatSize(file.size)})`;
+  updateSendBtn();
+}
+
+function updateSendBtn() {
+  document.getElementById('send-btn').disabled = !(selectedTargets.size > 0 && selectedFile);
+}
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  selectedFile = file;
+  document.getElementById('dz-filename').textContent = `${getFileIcon(file.name)} ${file.name}  (${formatSize(file.size)})`;
+  updateSendBtn();
+});
+
+// ══ Send File (to multiple targets) ════════════════════
+async function sendFile() {
+  if (selectedTargets.size === 0 || !selectedFile) return;
+  const sendBtn = document.getElementById('send-btn');
+  const sendMsg = document.getElementById('send-msg');
+  sendBtn.disabled = true;
+  setMsg(sendMsg, '', '');
+  showProgress(5, 'Encrypting file with AES-256…');
+
+  const targets = [...selectedTargets];
+
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i];
+    const pct = Math.round(((i) / targets.length) * 80) + 10;
+    animateProgress(pct, `Sending to ${target}… (${i+1}/${targets.length})`);
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('targetUsername', target);
+
+    try {
+      const r = await fetch('/send-file', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      const d = await r.json();
+
+      if (d.success) {
+        addLog(`📤 Sent to ${target}: ${selectedFile.name}`, 'ok');
+        addSentFile(d.requestId, selectedFile, target);
+      } else {
+        addLog(`❌ Failed to send to ${target}: ${d.error}`, 'err');
+        setMsg(sendMsg, `❌ ${target}: ${d.error || 'Send failed'}`, 'err');
+      }
+    } catch(e) {
+      addLog(`❌ Network error sending to ${target}`, 'err');
+    }
+  }
+
+  animateProgress(90, 'Waiting for receivers to accept…');
+  setMsg(sendMsg, `✅ Sent to ${targets.length} user(s)! Waiting…`, 'ok');
+  sendBtn.disabled = false;
+}
+
+// ══ Sent Files History ══════════════════════════════════
+function addSentFile(requestId, file, toUser) {
+  sentCount++;
+  const entry = {
+    requestId,
+    name: file.name,
+    size: file.size,
+    type: (file.name.split('.').pop() || 'file').toUpperCase(),
+    to: toUser,
+    time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+    status: 'pending'
+  };
+  sentFiles.unshift(entry);
+  renderSentFiles();
+  document.getElementById('sent-count').textContent = sentFiles.length + ' file' + (sentFiles.length !== 1 ? 's' : '');
+}
+
+function updateSentFileStatus(requestId, status) {
+  const entry = sentFiles.find(f => f.requestId === requestId);
+  if (entry) { entry.status = status; renderSentFiles(); }
+}
+
+function renderSentFiles() {
+  const list = document.getElementById('sent-files-list');
+  if (!sentFiles.length) { list.innerHTML = '<div class="empty-state">No files sent yet…</div>'; return; }
+  list.innerHTML = sentFiles.map(f => `
+    <div class="sent-file-item">
+      <div class="sf-icon">${getFileIcon(f.name)}</div>
+      <div class="sf-info">
+        <div class="sf-name" title="${f.name}">${f.name}</div>
+        <div class="sf-meta">${formatSize(f.size)} · <strong>${f.type}</strong> · To: <strong>${f.to}</strong> · ${f.time}</div>
+      </div>
+      <div class="sf-status ${f.status}">${f.status === 'pending' ? '⏳ Pending' : f.status === 'accepted' ? '✅ Done' : '❌ Rejected'}</div>
+    </div>
+  `).join('');
+}
+
+// ══ Incoming File Request ═══════════════════════════════
+function showFileRequest({ requestId, fromUsername, filename, fileSize }) {
+  const notifArea = document.getElementById('notif-area');
+  const card = document.createElement('div');
+  card.className = 'notif-card';
+  card.id = `notif-${requestId}`;
+  card.innerHTML = `
+    <div class="notif-header">
+      <div class="notif-icon">📥</div>
+      <div>
+        <div class="notif-from">${fromUsername} wants to send you</div>
+        <div class="notif-sub">🔒 AES-256 + RSA-2048 Encrypted</div>
+      </div>
+    </div>
+    <div class="notif-filename">
+      ${getFileIcon(filename)} ${filename}
+      <div class="notif-size">${formatSize(fileSize)}</div>
+    </div>
+    <div class="notif-btns">
+      <button class="btn-accept" onclick="respondTransfer('${requestId}', true)">✅ Accept</button>
+      <button class="btn-reject" onclick="respondTransfer('${requestId}', false)">❌ Reject</button>
+    </div>
+  `;
+  notifArea.appendChild(card);
+  showToast(`📥 Incoming file from ${fromUsername}!`, 'var(--accent)');
+}
+
+function respondTransfer(requestId, accept) {
+  const card = document.getElementById(`notif-${requestId}`);
+  if (!socket) return;
+  if (accept) {
+    socket.emit('accept-transfer', { requestId });
+    if (card) { card.style.opacity = '0.5'; card.style.pointerEvents = 'none'; }
+    addLog('✅ Accepted file transfer', 'ok');
+  } else {
+    socket.emit('reject-transfer', { requestId });
+    if (card) { card.style.opacity = '0'; setTimeout(() => card.remove(), 300); }
+    addLog('❌ Rejected file transfer', 'err');
+    showToast('Transfer rejected', 'var(--pink)');
+  }
+}
+
+async function triggerDownload(requestId, filename) {
+  addLog(`🔓 Decrypting ${filename}…`, 'info');
+  try {
+    const r = await fetch(`/download/${requestId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!r.ok) throw new Error('Download failed');
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    addLog(`✅ ${filename} saved!`, 'ok');
+    showToast(`✅ ${filename} downloaded!`, 'var(--teal)');
+    const cards = document.querySelectorAll('.notif-card');
+    cards.forEach(c => { if(c.textContent.includes(filename)) { c.style.opacity = '0'; setTimeout(()=>c.remove(),300); } });
+  } catch(e) {
+    addLog(`❌ Download failed: ${e.message}`, 'err');
+    showToast('Download failed ❌', 'var(--pink)');
+  }
+}
+
+// ══ Progress ════════════════════════════════════════════
+function showProgress(pct, label) {
+  document.getElementById('progress-wrap').classList.add('show');
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+  document.getElementById('progress-pct').textContent = pct + '%';
+}
+function animateProgress(pct, label) {
+  showProgress(pct, label);
+}
+function hideProgress() {
+  setTimeout(() => {
+    document.getElementById('progress-wrap').classList.remove('show');
+    document.getElementById('progress-bar').style.width = '0%';
+    document.getElementById('progress-pct').textContent = '0%';
+  }, 1500);
+}
+
+// ══ Utils ═══════════════════════════════════════════════
+function setMsg(el, text, type) {
+  el.textContent = text;
+  el.className = 'msg ' + type;
+}
+
+function addLog(text, type='info') {
+  const log = document.getElementById('activity-log');
+  const empty = log.querySelector('.empty-state');
+  if (empty) empty.remove();
+  const now = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const item = document.createElement('div');
+  item.className = `log-item ${type}`;
+  item.innerHTML = `<div class="log-dot"></div><div class="log-text">${text}</div><div class="log-time">${now}</div>`;
+  log.insertBefore(item, log.firstChild);
+  if (log.children.length > 25) log.removeChild(log.lastChild);
+}
+
+function showToast(msg, color='var(--accent)') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = color;
+  t.style.color = color;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/(1024*1024)).toFixed(2) + ' MB';
+}
+</script>
+</body>
+</html>
