@@ -1,6 +1,6 @@
-# SecureShare 🔐
+# Secure 🔐
 
-SecureShare is a secure file-sharing app built with **Node.js**, **Express**, **Socket.IO**, and **RSA/AES encryption**. It allows authenticated users to send encrypted files securely in real time.
+Secure is a secure file-sharing app built with **Node.js**, **Express**, **Socket.IO**, and **RSA/AES encryption**. It allows authenticated users to send encrypted files securely in real time.
 
 ## 🚀 Features
 
